@@ -244,7 +244,8 @@ func eval(args []string, params evalCommandParams, w io.Writer) (bool, error) {
 	}
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
-	resultJSONErr := encoder.Encode(result)
+	res := myUtil.ResultSetTArrayMap(result)
+	resultJSONErr := encoder.Encode(res)
 	if resultJSONErr != nil {
 		return false, resultJSONErr
 	}
