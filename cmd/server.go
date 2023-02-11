@@ -1,4 +1,4 @@
-// Copyright 2018 The OPA Authors.  All rights reserved.
+// Copyright 2023 Honyrik.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -65,6 +65,7 @@ func getPreparedEvalQuery(ctx context.Context, in *pb.ApiRequest) (rego.Prepared
 	pq, exist := cachePrepare[md5Sum]
 
 	if exist {
+		log.Println("Cache")
 		return pq, nil
 	}
 
