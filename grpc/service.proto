@@ -10,7 +10,7 @@ service Api {
   
 message ApiRequest {
   repeated string packages = 1;
-  repeated string datas = 2;
+  string data = 2;
   string input = 3;
   string query = 4;
   string resultPath = 5;

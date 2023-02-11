@@ -26,6 +26,7 @@ import (
 	"github.com/jackwhelpton/fasthttp-routing/fault"
 	"github.com/jackwhelpton/fasthttp-routing/slash"
 	"github.com/open-policy-agent/opa/rego"
+	"github.com/open-policy-agent/opa/storage/inmem"
 	"github.com/open-policy-agent/opa/util"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -49,8 +50,8 @@ func getPreparedEvalQuery(ctx context.Context, in *pb.ApiRequest) (rego.Prepared
 		return rego.PreparedEvalQuery{}, fmt.Errorf("Need query")
 	}
 
-	if len(in.Datas) > 0 {
-		strArray = append(strArray, in.Datas...)
+	if in.Data != "" {
+		strArray = append(strArray, in.Data)
 	}
 	if len(in.Packages) > 0 {
 		strArray = append(strArray, in.Packages...)
@@ -69,10 +70,14 @@ func getPreparedEvalQuery(ctx context.Context, in *pb.ApiRequest) (rego.Prepared
 
 	regoArgs := []func(*rego.Rego){rego.Query(in.Query)}
 
-	if len(in.Datas) > 0 {
-		for index, data := range in.Datas {
-			regoArgs = append(regoArgs, rego.Module(fmt.Sprint("data_%d.json", index), data))
+	if in.Data != "" {
+		var data map[string]interface{}
+		err := util.Unmarshal([]byte(in.Data), &data)
+		if err != nil {
+			return pq, err
 		}
+		store := inmem.NewFromObject(data)
+		regoArgs = append(regoArgs, rego.Store(store))
 	}
 
 	if len(in.Packages) > 0 {
