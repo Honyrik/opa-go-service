@@ -20,11 +20,11 @@ To evaluate a query against JSON data custom result:
 
 To evaluate a query against Input custom result:
     
-    $ curl -X POST http://localhost:8080/execute -H 'Content-Type: application/json' -H 'Accept: application/json' --data '{"resultPath":"{\$..Bindings.result}", "query":"result = input", "input": "{\"test\":1}"}'
+    $ curl -X POST http://localhost:8080/execute -H 'Content-Type: application/json' -H 'Accept: application/json' --data '{"resultPath":"{$..Bindings.result}", "query":"result = input", "input": "{\"test\":1}"}'
 
 To evaluate a query against IsCache:
     
-    $ curl -X POST http://localhost:8080/execute -H 'Content-Type: application/json' -H 'Accept: application/json' --data '{"resultPath":"{\$..Bindings.result}", "query":"result = input", "input": "{\"test\":1}", "isCache": true}'
+    $ curl -X POST http://localhost:8080/execute -H 'Content-Type: application/json' -H 'Accept: application/json' --data '{"resultPath":"{$..Bindings.result}", "query":"result = input", "input": "{\"test\":1}", "isCache": true}'
  First
  
     2023/02/11 15:13:23 [127.0.0.1] [1.311ms] POST /execute http 200 48
