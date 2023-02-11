@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+option go_package = "github.com/Honyrik/opa-go-service/grpc";
+
+package OPA;
+
+service Api {
+    rpc Execute (ApiRequest) returns (ApiResult) {}
+}
+  
+message ApiRequest {
+  repeated string packages = 1;
+  repeated string datas = 2;
+  string input = 3;
+  string query = 4;
+  string resultPath = 5;
+  bool isCache = 6; 
+}
+  
+message ApiResult {
+  bool isSucces = 1;
+  string result = 2;
+  string error = 3;
+}
