@@ -57,11 +57,12 @@ if [[ -d /root/src ]]; then
   rm -rf dist
   mkdir -p dist
   echo "Build darwin"
-  GOOS=darwin GOARCH=amd64 CC=o64-clang CXX=o64-clang++ go build -buildvcs=false -o dist/darwin_amd64/opa-go-service; tar -czf dist/opa-go-service.darwin_amd64.tar.gz dist/darwin_amd64/opa-go-service
+  cd /root/src; GOOS=darwin GOARCH=amd64 CC=o64-clang CXX=o64-clang++ go build -buildvcs=false -o dist/darwin_amd64/opa-go-service; cd dist/darwin_amd64; tar -czf ../opa-go-service.darwin_amd64.tar.gz opa-go-service
   echo "Build linux"
-  GOOS=linux GOARCH=amd64 go build -buildvcs=false -o dist/linux_amd64/opa-go-service; tar -czf dist/opa-go-service.linux_amd64.tar.gz dist/linux_amd64/opa-go-service
+  cd /root/src; GOOS=linux GOARCH=amd64 go build -buildvcs=false -o dist/linux_amd64/opa-go-service; cd dist/linux_amd64;  tar -czf ../opa-go-service.linux_amd64.tar.gz opa-go-service
   echo "Build windows"
-  GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ go build -buildvcs=false -o dist/windows_amd64/opa-go-service.exe; tar -czf dist/opa-go-service.windows_amd64.tar.gz dist/windows_amd64/opa-go-service.exe
+  cd /root/src; GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ go build -buildvcs=false -o dist/windows_amd64/opa-go-service.exe; cd dist/windows_amd64;  tar -czf ../opa-go-service.windows_amd64.tar.gz opa-go-service.exe
+  chmod -R 777 /root/src/dist
 fi
 
 exec "$@"
