@@ -1,7 +1,7 @@
 # opa-go-service
 
 # Start
-    $ opa server
+    $ opa-go-service server
 
 # Examples
 --------
