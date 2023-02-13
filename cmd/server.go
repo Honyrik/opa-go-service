@@ -15,7 +15,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	pb "github.com/Honyrik/opa-go-service/grpc"
 	myUtil "github.com/Honyrik/opa-go-service/util"
@@ -229,6 +231,36 @@ func init() {
 	RootCommand.AddCommand(evalCommand)
 }
 
+func maxMessageSize() int {
+	maxRequestBodySize := 100 * 1024 * 1024
+
+	if os.Getenv("MAX_MESSAGE_SIZE") != "" {
+		i, err := strconv.Atoi(os.Getenv("MAX_MESSAGE_SIZE"))
+		if err != nil {
+			log.Println(err)
+		} else {
+			maxRequestBodySize = i
+		}
+	}
+
+	return maxRequestBodySize
+}
+
+func connextionTimeout() time.Duration {
+	maxRequestBodySize, _ := time.ParseDuration("1200s")
+
+	if os.Getenv("CONNECTION_TIMEOUT") != "" {
+		i, err := time.ParseDuration(os.Getenv("CONNECTION_TIMEOUT"))
+		if err != nil {
+			log.Println(err)
+		} else {
+			return i
+		}
+	}
+
+	return maxRequestBodySize
+}
+
 func startRest(restPort string, errChan chan error) {
 	router := routing.New()
 	router.Use(
@@ -239,7 +271,14 @@ func startRest(restPort string, errChan chan error) {
 	)
 	router.Post("/execute", Execute)
 	log.Printf("server Rest listening at %s", restPort)
-	if err := fasthttp.ListenAndServe(fmt.Sprintf(":%s", restPort), router.HandleRequest); err != nil {
+	s := fasthttp.Server{
+		Handler:            router.HandleRequest,
+		Name:               "opa-rest",
+		MaxRequestBodySize: maxMessageSize(),
+		ReadTimeout:        connextionTimeout(),
+		WriteTimeout:       connextionTimeout(),
+	}
+	if err := s.ListenAndServe(fmt.Sprintf(":%s", restPort)); err != nil {
 		errChan <- fmt.Errorf("failed to serve: %v", err)
 	}
 }
@@ -249,7 +288,13 @@ func startGrpc(grpcPort string, errChan chan error) {
 	if err != nil {
 		errChan <- fmt.Errorf("failed to listen: %v", err)
 	}
-	s := grpc.NewServer()
+	var opts []grpc.ServerOption
+	opts = append(opts,
+		grpc.MaxMsgSize(maxMessageSize()),
+		grpc.ConnectionTimeout(connextionTimeout()),
+	)
+	s := grpc.NewServer(opts...)
+
 	pb.RegisterApiServer(s, &server{})
 	log.Printf("server grpc listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
