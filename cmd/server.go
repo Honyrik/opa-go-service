@@ -66,7 +66,7 @@ func getPreparedEvalQuery(ctx context.Context, in *pb.ApiRequest) (rego.Prepared
 	md5Sum := string(md5SumBuf[:])
 	pq, exist := cachePrepare[md5Sum]
 
-	if exist && !in.IsCache {
+	if exist && in.IsCache {
 		return pq, nil
 	}
 
