@@ -36,8 +36,9 @@ import (
 )
 
 type serverCommandParams struct {
-	restPort string
-	grpcPort string
+	restPort   string
+	grpcPort   string
+	probesPort string
 }
 
 type server struct {
@@ -232,7 +233,8 @@ func init() {
 	}
 
 	evalCommand.Flags().StringVarP(&params.grpcPort, "grpc-port", "g", os.Getenv("GRPC_PORT"), "gRPC port")
-	evalCommand.Flags().StringVarP(&params.grpcPort, "rest-port", "r", os.Getenv("REST_PORT"), "REST port")
+	evalCommand.Flags().StringVarP(&params.restPort, "rest-port", "r", os.Getenv("REST_PORT"), "REST port")
+	evalCommand.Flags().StringVarP(&params.probesPort, "probes-port", "p", os.Getenv("PROBE_PORT"), "PROBE port")
 	RootCommand.AddCommand(evalCommand)
 }
 
@@ -266,7 +268,28 @@ func connextionTimeout() time.Duration {
 	return maxRequestBodySize
 }
 
-func startRest(restPort string, errChan chan error) {
+func startProbes(port string, errChan chan error) {
+	router := routing.New()
+	router.Use(
+		slash.Remover(fasthttp.StatusMovedPermanently),
+		fault.Recovery(log.Printf),
+		content.TypeNegotiator(content.JSON, content.XML),
+	)
+	router.Get("/healthz", Readiness)
+	log.Printf("server Probes listening at %s", port)
+	s := fasthttp.Server{
+		Handler:            router.HandleRequest,
+		Name:               "opa-probes",
+		MaxRequestBodySize: maxMessageSize(),
+		ReadTimeout:        connextionTimeout(),
+		WriteTimeout:       connextionTimeout(),
+	}
+	if err := s.ListenAndServe(fmt.Sprintf(":%s", port)); err != nil {
+		errChan <- fmt.Errorf("failed to serve: %v", err)
+	}
+}
+
+func startRest(port string, errChan chan error) {
 	router := routing.New()
 	router.Use(
 		access.Logger(log.Printf),
@@ -275,8 +298,7 @@ func startRest(restPort string, errChan chan error) {
 		content.TypeNegotiator(content.JSON, content.XML),
 	)
 	router.Post("/execute", Execute)
-	router.Get("/healthz", Readiness)
-	log.Printf("server Rest listening at %s", restPort)
+	log.Printf("server Rest listening at %s", port)
 	s := fasthttp.Server{
 		Handler:            router.HandleRequest,
 		Name:               "opa-rest",
@@ -284,13 +306,13 @@ func startRest(restPort string, errChan chan error) {
 		ReadTimeout:        connextionTimeout(),
 		WriteTimeout:       connextionTimeout(),
 	}
-	if err := s.ListenAndServe(fmt.Sprintf(":%s", restPort)); err != nil {
+	if err := s.ListenAndServe(fmt.Sprintf(":%s", port)); err != nil {
 		errChan <- fmt.Errorf("failed to serve: %v", err)
 	}
 }
 
-func startGrpc(grpcPort string, errChan chan error) {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", grpcPort))
+func startGrpc(port string, errChan chan error) {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
 	if err != nil {
 		errChan <- fmt.Errorf("failed to listen: %v", err)
 	}
@@ -317,14 +339,19 @@ func startServer(args []string, params serverCommandParams, w io.Writer) (bool, 
 	if restPort == "" {
 		restPort = "8080"
 	}
+	probesPort := params.probesPort
+	if probesPort == "" {
+		probesPort = "10080"
+	}
 	errChan := make(chan error)
 
 	go startGrpc(grpcPort, errChan)
 	go startRest(restPort, errChan)
+	go startProbes(probesPort, errChan)
 
 	for {
-		val, ok := <-errChan
-		if ok != false {
+		val, _ := <-errChan
+		if val != nil {
 			return false, val
 		}
 	}
