@@ -207,6 +207,12 @@ func Execute(ctx *routing.Context) error {
 	return nil
 }
 
+func Readiness(ctx *routing.Context) error {
+	ctx.WriteString("ready!")
+
+	return nil
+}
+
 func init() {
 
 	params := serverCommandParams{}
@@ -269,6 +275,7 @@ func startRest(restPort string, errChan chan error) {
 		content.TypeNegotiator(content.JSON, content.XML),
 	)
 	router.Post("/execute", Execute)
+	router.Get("/healthz", Readiness)
 	log.Printf("server Rest listening at %s", restPort)
 	s := fasthttp.Server{
 		Handler:            router.HandleRequest,
