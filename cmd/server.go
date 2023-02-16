@@ -14,6 +14,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -21,12 +22,8 @@ import (
 
 	pb "github.com/Honyrik/opa-go-service/grpc"
 	myUtil "github.com/Honyrik/opa-go-service/util"
-	"github.com/erikdubbelboer/fasthttp"
-	routing "github.com/jackwhelpton/fasthttp-routing"
-	"github.com/jackwhelpton/fasthttp-routing/access"
-	"github.com/jackwhelpton/fasthttp-routing/content"
-	"github.com/jackwhelpton/fasthttp-routing/fault"
-	"github.com/jackwhelpton/fasthttp-routing/slash"
+	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/open-policy-agent/opa/storage/inmem"
 	"github.com/open-policy-agent/opa/util"
@@ -181,36 +178,33 @@ func (s *server) Execute(ctx context.Context, in *pb.ApiRequest) (*pb.ApiResult,
 	return ExecuteRego(ctx, in)
 }
 
-func Execute(ctx *routing.Context) error {
-	data := pb.ApiRequest{}
-	err := json.Unmarshal(ctx.PostBody(), &data)
+func Execute(c echo.Context) error {
+	data := new(pb.ApiRequest)
+	err := c.Bind(data)
 	if err != nil {
-		ctx.Write(&pb.ApiResult{
+		c.JSON(http.StatusOK, &pb.ApiResult{
 			IsSucces: false,
 			Error:    fmt.Sprint("Unable Post Data: %v", err),
 		})
 		return nil
 	}
-	ctxRego := context.Background()
-
-	res, err := ExecuteRego(ctxRego, &data)
+	res, err := ExecuteRego(c.Request().Context(), data)
 
 	if err != nil {
-		ctx.Write(&pb.ApiResult{
+		c.JSON(http.StatusOK, &pb.ApiResult{
 			IsSucces: false,
 			Error:    fmt.Sprint("Unable Execute Rego: %v", err),
 		})
 		return nil
 	}
 
-	ctx.Write(res)
-
+	c.JSON(http.StatusOK, res)
 	return nil
 }
 
-func Readiness(ctx *routing.Context) error {
-	ctx.WriteString("ready!")
+func Readiness(c echo.Context) error {
 
+	c.String(http.StatusOK, "Ready!")
 	return nil
 }
 
@@ -253,7 +247,22 @@ func maxMessageSize() int {
 	return maxRequestBodySize
 }
 
-func connextionTimeout() time.Duration {
+func maxHeaderSize() int {
+	maxHeaderSize := 1 * 1024 * 1024
+
+	if os.Getenv("MAX_HEADER_SIZE") != "" {
+		i, err := strconv.Atoi(os.Getenv("MAX_HEADER_SIZE"))
+		if err != nil {
+			log.Println(err)
+		} else {
+			maxHeaderSize = i
+		}
+	}
+
+	return maxHeaderSize
+}
+
+func connectionTimeout() time.Duration {
 	maxRequestBodySize, _ := time.ParseDuration("1200s")
 
 	if os.Getenv("CONNECTION_TIMEOUT") != "" {
@@ -269,44 +278,42 @@ func connextionTimeout() time.Duration {
 }
 
 func startProbes(port string, errChan chan error) {
-	router := routing.New()
-	router.Use(
-		slash.Remover(fasthttp.StatusMovedPermanently),
-		fault.Recovery(log.Printf),
-		content.TypeNegotiator(content.JSON, content.XML),
-	)
-	router.Get("/healthz", Readiness)
-	log.Printf("server Probes listening at %s", port)
-	s := fasthttp.Server{
-		Handler:            router.HandleRequest,
-		Name:               "opa-probes",
-		MaxRequestBodySize: maxMessageSize(),
-		ReadTimeout:        connextionTimeout(),
-		WriteTimeout:       connextionTimeout(),
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
+	if err != nil {
+		errChan <- fmt.Errorf("failed to listen: %v", err)
 	}
-	if err := s.ListenAndServe(fmt.Sprintf(":%s", port)); err != nil {
+	mux := echo.New()
+	mux.GET("/healthz", Readiness)
+	s := http.Server{
+		Handler:        mux,
+		MaxHeaderBytes: maxHeaderSize(),
+		ReadTimeout:    connectionTimeout(),
+		WriteTimeout:   connectionTimeout(),
+	}
+	log.Printf("server probes listening at %v", lis.Addr())
+	if err := s.Serve(lis); err != nil {
 		errChan <- fmt.Errorf("failed to serve: %v", err)
 	}
 }
 
 func startRest(port string, errChan chan error) {
-	router := routing.New()
-	router.Use(
-		access.Logger(log.Printf),
-		slash.Remover(fasthttp.StatusMovedPermanently),
-		fault.Recovery(log.Printf),
-		content.TypeNegotiator(content.JSON, content.XML),
-	)
-	router.Post("/execute", Execute)
-	log.Printf("server Rest listening at %s", port)
-	s := fasthttp.Server{
-		Handler:            router.HandleRequest,
-		Name:               "opa-rest",
-		MaxRequestBodySize: maxMessageSize(),
-		ReadTimeout:        connextionTimeout(),
-		WriteTimeout:       connextionTimeout(),
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
+	if err != nil {
+		errChan <- fmt.Errorf("failed to listen: %v", err)
 	}
-	if err := s.ListenAndServe(fmt.Sprintf(":%s", port)); err != nil {
+	mux := echo.New()
+	mux.Use(
+		middleware.Logger(),
+	)
+	mux.POST("/execute", Execute)
+	s := http.Server{
+		Handler:        mux,
+		MaxHeaderBytes: maxHeaderSize(),
+		ReadTimeout:    connectionTimeout(),
+		WriteTimeout:   connectionTimeout(),
+	}
+	log.Printf("server rest listening at %v", lis.Addr())
+	if err := s.Serve(lis); err != nil {
 		errChan <- fmt.Errorf("failed to serve: %v", err)
 	}
 }
@@ -319,7 +326,7 @@ func startGrpc(port string, errChan chan error) {
 	var opts []grpc.ServerOption
 	opts = append(opts,
 		grpc.MaxMsgSize(maxMessageSize()),
-		grpc.ConnectionTimeout(connextionTimeout()),
+		grpc.ConnectionTimeout(connectionTimeout()),
 	)
 	s := grpc.NewServer(opts...)
 
