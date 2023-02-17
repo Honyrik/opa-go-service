@@ -233,37 +233,22 @@ func init() {
 }
 
 func maxMessageSize() int {
-	maxRequestBodySize := 100 * 1024 * 1024
+	maxMessageSize := 100 * 1024 * 1024
 
 	if os.Getenv("MAX_MESSAGE_SIZE") != "" {
 		i, err := strconv.Atoi(os.Getenv("MAX_MESSAGE_SIZE"))
 		if err != nil {
 			log.Println(err)
 		} else {
-			maxRequestBodySize = i
+			maxMessageSize = i
 		}
 	}
 
-	return maxRequestBodySize
-}
-
-func maxHeaderSize() int {
-	maxHeaderSize := 1 * 1024 * 1024
-
-	if os.Getenv("MAX_HEADER_SIZE") != "" {
-		i, err := strconv.Atoi(os.Getenv("MAX_HEADER_SIZE"))
-		if err != nil {
-			log.Println(err)
-		} else {
-			maxHeaderSize = i
-		}
-	}
-
-	return maxHeaderSize
+	return maxMessageSize
 }
 
 func connectionTimeout() time.Duration {
-	maxRequestBodySize, _ := time.ParseDuration("1200s")
+	timeout, _ := time.ParseDuration("1200s")
 
 	if os.Getenv("CONNECTION_TIMEOUT") != "" {
 		i, err := time.ParseDuration(os.Getenv("CONNECTION_TIMEOUT"))
@@ -274,7 +259,7 @@ func connectionTimeout() time.Duration {
 		}
 	}
 
-	return maxRequestBodySize
+	return timeout
 }
 
 func startProbes(port string, errChan chan error) {
@@ -286,7 +271,7 @@ func startProbes(port string, errChan chan error) {
 	mux.GET("/healthz", Readiness)
 	s := http.Server{
 		Handler:        mux,
-		MaxHeaderBytes: maxHeaderSize(),
+		MaxHeaderBytes: maxMessageSize(),
 		ReadTimeout:    connectionTimeout(),
 		WriteTimeout:   connectionTimeout(),
 	}
@@ -308,7 +293,7 @@ func startRest(port string, errChan chan error) {
 	mux.POST("/execute", Execute)
 	s := http.Server{
 		Handler:        mux,
-		MaxHeaderBytes: maxHeaderSize(),
+		MaxHeaderBytes: maxMessageSize(),
 		ReadTimeout:    connectionTimeout(),
 		WriteTimeout:   connectionTimeout(),
 	}
