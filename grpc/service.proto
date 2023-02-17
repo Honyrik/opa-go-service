@@ -18,7 +18,7 @@ message ApiRequest {
 }
   
 message ApiResult {
-  bool isSucces = 1;
+  bool isSuccess = 1;
   string result = 2;
   string error = 3;
 }

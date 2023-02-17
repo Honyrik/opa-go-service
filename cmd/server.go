@@ -104,8 +104,8 @@ func ExecuteRego(ctx context.Context, in *pb.ApiRequest) (*pb.ApiResult, error) 
 
 	if errPq != nil {
 		return &pb.ApiResult{
-			IsSucces: false,
-			Error:    fmt.Sprint("unable to prepare query: %v", errPq),
+			IsSuccess: false,
+			Error:     fmt.Sprint("unable to prepare query: %v", errPq),
 		}, nil
 	}
 
@@ -119,8 +119,8 @@ func ExecuteRego(ctx context.Context, in *pb.ApiRequest) (*pb.ApiResult, error) 
 		err := util.Unmarshal([]byte(in.Input), &input)
 		if err != nil {
 			return &pb.ApiResult{
-				IsSucces: false,
-				Error:    fmt.Sprint("unable to parse input: %v", err),
+				IsSuccess: false,
+				Error:     fmt.Sprint("unable to parse input: %v", err),
 			}, nil
 		}
 		evalArgs = append(evalArgs, rego.EvalInput(input))
@@ -128,8 +128,8 @@ func ExecuteRego(ctx context.Context, in *pb.ApiRequest) (*pb.ApiResult, error) 
 	result, resultErr := pq.Eval(ctx, evalArgs...)
 	if resultErr != nil {
 		return &pb.ApiResult{
-			IsSucces: false,
-			Error:    fmt.Sprint("Unable Eval: %v", resultErr),
+			IsSuccess: false,
+			Error:     fmt.Sprint("Unable Eval: %v", resultErr),
 		}, nil
 	}
 
@@ -138,13 +138,13 @@ func ExecuteRego(ctx context.Context, in *pb.ApiRequest) (*pb.ApiResult, error) 
 		resJson, resJsonErr := json.Marshal(res)
 		if resJsonErr != nil {
 			return &pb.ApiResult{
-				IsSucces: false,
-				Error:    fmt.Sprint("Unable Json: %v", resJsonErr),
+				IsSuccess: false,
+				Error:     fmt.Sprint("Unable Json: %v", resJsonErr),
 			}, nil
 		}
 		return &pb.ApiResult{
-			IsSucces: true,
-			Result:   string(resJson[:]),
+			IsSuccess: true,
+			Result:    string(resJson[:]),
 		}, nil
 	}
 
@@ -153,8 +153,8 @@ func ExecuteRego(ctx context.Context, in *pb.ApiRequest) (*pb.ApiResult, error) 
 	resultPathErr := parse.Parse(in.ResultPath)
 	if resultPathErr != nil {
 		return &pb.ApiResult{
-			IsSucces: false,
-			Error:    fmt.Sprint("Unable Prepare Result Path: %v", resultPathErr),
+			IsSuccess: false,
+			Error:     fmt.Sprint("Unable Prepare Result Path: %v", resultPathErr),
 		}, nil
 	}
 
@@ -163,14 +163,14 @@ func ExecuteRego(ctx context.Context, in *pb.ApiRequest) (*pb.ApiResult, error) 
 	printErr := parse.Execute(w, res)
 	if printErr != nil {
 		return &pb.ApiResult{
-			IsSucces: false,
-			Error:    fmt.Sprint("Unable Find Result Path: ", printErr),
+			IsSuccess: false,
+			Error:     fmt.Sprint("Unable Find Result Path: ", printErr),
 		}, nil
 	}
 
 	return &pb.ApiResult{
-		IsSucces: true,
-		Result:   w.String(),
+		IsSuccess: true,
+		Result:    w.String(),
 	}, nil
 }
 
@@ -183,8 +183,8 @@ func Execute(c echo.Context) error {
 	err := c.Bind(data)
 	if err != nil {
 		c.JSON(http.StatusOK, &pb.ApiResult{
-			IsSucces: false,
-			Error:    fmt.Sprint("Unable Post Data: %v", err),
+			IsSuccess: false,
+			Error:     fmt.Sprint("Unable Post Data: %v", err),
 		})
 		return nil
 	}
@@ -192,8 +192,8 @@ func Execute(c echo.Context) error {
 
 	if err != nil {
 		c.JSON(http.StatusOK, &pb.ApiResult{
-			IsSucces: false,
-			Error:    fmt.Sprint("Unable Execute Rego: %v", err),
+			IsSuccess: false,
+			Error:     fmt.Sprint("Unable Execute Rego: %v", err),
 		})
 		return nil
 	}
