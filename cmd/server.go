@@ -202,9 +202,26 @@ func Execute(c echo.Context) error {
 	return nil
 }
 
-func Readiness(c echo.Context) error {
+var isReady = true
 
-	c.String(http.StatusOK, "Ready!")
+func Readiness(c echo.Context) error {
+	if isReady {
+		c.String(http.StatusOK, "Ready!")
+	} else {
+		c.String(http.StatusBadRequest, "Not ready!")
+	}
+	return nil
+}
+
+func Liveness(c echo.Context) error {
+
+	c.String(http.StatusOK, "Alive!")
+	return nil
+}
+
+func Startup(c echo.Context) error {
+
+	c.String(http.StatusOK, "Started!")
 	return nil
 }
 
@@ -268,7 +285,9 @@ func startProbes(port string, errChan chan error) {
 		errChan <- fmt.Errorf("failed to listen: %v", err)
 	}
 	mux := echo.New()
-	mux.GET("/healthz", Readiness)
+	mux.GET("/readiness", Readiness)
+	mux.GET("/liveness", Liveness)
+	mux.GET("/startup", Startup)
 	s := http.Server{
 		Handler:        mux,
 		MaxHeaderBytes: maxMessageSize(),
